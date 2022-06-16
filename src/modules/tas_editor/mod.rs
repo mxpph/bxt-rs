@@ -113,7 +113,7 @@ static BXT_TAS_OPTIM_CONSTRAINT_VALUE: CVar =
     CVar::new(b"bxt_tas_optim_constraint_value\0", b"0\0");
 static BXT_TAS_OPTIM_RHAI_FILE: CVar = CVar::new(b"bxt_tas_optim_rhai_file\0", b"\0");
 static BXT_TAS_OPTIM_ANNEALING_TEMPERATURE: CVar =
-    CVar::new(b"bxt_tas_optim_annealing_temperature\0", b"20\0");
+    CVar::new(b"bxt_tas_optim_annealing_temperature\0", b"10\0");
 static BXT_TAS_OPTIM_ANNEALING_COOLING_RATE: CVar =
     CVar::new(b"bxt_tas_optim_annealing_cooling_rate\0", b"0.99\0");
 

@@ -130,8 +130,7 @@ pub enum AttemptResult {
     Invalid,
     /// The attempt was worse than the best so far.
     Worse {
-        new_value: String,
-        old_value: String,
+        difference: String,
     },
     /// The attempt was an improvement.
     Better {
@@ -186,9 +185,17 @@ impl Objective {
                 let old_value = variable.get(&old_frames.last().unwrap().state);
 
                 if !direction.is_better(new_value, old_value) {
+                    let difference: f32;
+                    match direction {
+                        Direction::Minimize => {
+                            difference = old_value - new_value;
+                        }
+                        Direction::Maximize => {
+                            difference = new_value - old_value;
+                        }
+                    }
                     return AttemptResult::Worse {
-                        new_value: new_value.to_string(),
-                        old_value: old_value.to_string(),
+                        difference: difference.to_string(),
                     };
                 }
 

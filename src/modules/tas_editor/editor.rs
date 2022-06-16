@@ -253,11 +253,12 @@ impl Editor {
                     self.frames = frames;
                     Some(result)
                 }
-                AttemptResult::Worse {ref new_value, ref old_value } => {
-                    let cost: f32 = old_value.parse::<f32>().unwrap();
-                    let cost_new: f32 = new_value.parse::<f32>().unwrap();
+                AttemptResult::Worse {ref difference } => {
+                    let cost: f32 = difference.parse::<f32>().unwrap();
+                    let acceptance: f32 = (cost / self.temperature).exp();
+                    assert!(acceptance <= 1_f32);
 
-                    if rng.gen::<f32>() < ((cost - cost_new) / self.temperature).exp() {
+                    if rng.gen::<f32>() < acceptance {
                         self.hltas = hltas;
                         self.frames = frames;
                     } else {
@@ -270,19 +271,6 @@ impl Editor {
                     Some(result)
                 }
             }
-            /*
-            if result.is_better() {
-                self.hltas = hltas;
-                self.frames = frames;
-            } else if rng.gen::<f32>() < ((result as f32 - cost_new as f32) / self.temperature).exp() {
-                self.hltas = hltas;
-                self.frames = frames;
-            } else {
-                self.last_mutation_frames = Some(frames);
-            }
-
-            Some(result)
-            */
         }))
     }
 
