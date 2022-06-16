@@ -68,6 +68,8 @@ impl Module for TasEditor {
             &BXT_TAS_OPTIM_DIRECTION,
             &BXT_TAS_OPTIM_VARIABLE,
             &BXT_TAS_OPTIM_RHAI_FILE,
+            &BXT_TAS_OPTIM_ANNEALING_TEMPERATURE,
+            &BXT_TAS_OPTIM_ANNEALING_COOLING_RATE,
         ];
         CVARS
     }
@@ -110,6 +112,10 @@ static BXT_TAS_OPTIM_CONSTRAINT_TYPE: CVar = CVar::new(b"bxt_tas_optim_constrain
 static BXT_TAS_OPTIM_CONSTRAINT_VALUE: CVar =
     CVar::new(b"bxt_tas_optim_constraint_value\0", b"0\0");
 static BXT_TAS_OPTIM_RHAI_FILE: CVar = CVar::new(b"bxt_tas_optim_rhai_file\0", b"\0");
+static BXT_TAS_OPTIM_ANNEALING_TEMPERATURE: CVar =
+    CVar::new(b"bxt_tas_optim_annealing_temperature\0", b"20\0");
+static BXT_TAS_OPTIM_ANNEALING_COOLING_RATE: CVar =
+    CVar::new(b"bxt_tas_optim_annealing_cooling_rate\0", b"0.99\0");
 
 static BXT_TAS_OPTIM_INIT: Command = Command::new(
     b"_bxt_tas_optim_init\0",
@@ -214,7 +220,10 @@ fn optim_init(marker: MainThreadMarker, path: PathBuf, first_frame: usize) {
     let generation = GENERATION.get(marker);
     GENERATION.set(marker, generation.wrapping_add(1));
 
-    *EDITOR.borrow_mut(marker) = Some(Editor::new(hltas, first_frame, initial_frame, generation));
+    let temperature: f32 = BXT_TAS_OPTIM_ANNEALING_TEMPERATURE.as_f32(marker);
+    let cooling_rate: f32 = BXT_TAS_OPTIM_ANNEALING_COOLING_RATE.as_f32(marker);
+
+    *EDITOR.borrow_mut(marker) = Some(Editor::new(hltas, first_frame, initial_frame, generation, temperature, cooling_rate));
 
     if let Err(err) = remote::start_server() {
         con_print(
@@ -580,6 +589,11 @@ pub fn draw(marker: MainThreadMarker, tri: &TriangleApi) {
                     .unwrap();
 
             if OPTIMIZE.get(marker) {
+                if editor.get_temperature() < 0.0001_f32 {
+                    OPTIMIZE.set(marker, false);
+                }
+                editor.update_temperature();
+
                 if let Some(optimizer) = editor.optimize(
                     &tracer,
                     BXT_TAS_OPTIM_FRAMES.as_u64(marker) as usize,
@@ -587,9 +601,7 @@ pub fn draw(marker: MainThreadMarker, tri: &TriangleApi) {
                     BXT_TAS_OPTIM_CHANGE_SINGLE_FRAMES.as_bool(marker),
                     &*OBJECTIVE.borrow(marker),
                 ) {
-                    let start = Instant::now();
-
-                    for result in optimizer {
+                    for result in optimizer.take(100) { // Change num iterations here?
                         match result {
                             AttemptResult::Better { value } => {
                                 con_print(marker, &format!("Found new best value: {value}\n"));
@@ -602,10 +614,6 @@ pub fn draw(marker: MainThreadMarker, tri: &TriangleApi) {
                         }
 
                         OPTIM_STATS_ITERATIONS.set(marker, OPTIM_STATS_ITERATIONS.get(marker) + 1);
-
-                        if start.elapsed() > Duration::from_millis(40) {
-                            break;
-                        }
                     }
                 }
 

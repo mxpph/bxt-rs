@@ -129,7 +129,10 @@ pub enum AttemptResult {
     /// The attempt failed the constraint.
     Invalid,
     /// The attempt was worse than the best so far.
-    Worse,
+    Worse {
+        new_value: String,
+        old_value: String,
+    },
     /// The attempt was an improvement.
     Better {
         /// String representation of the optimized value.
@@ -183,7 +186,10 @@ impl Objective {
                 let old_value = variable.get(&old_frames.last().unwrap().state);
 
                 if !direction.is_better(new_value, old_value) {
-                    return AttemptResult::Worse;
+                    return AttemptResult::Worse {
+                        new_value: new_value.to_string(),
+                        old_value: old_value.to_string(),
+                    };
                 }
 
                 AttemptResult::Better {
@@ -191,6 +197,9 @@ impl Objective {
                 }
             }
             Objective::Rhai { engine, ast } => {
+
+                todo!();
+                /*
                 let mut scope = rhai::Scope::new();
 
                 if let Err(err) = engine.run_ast_with_scope(&mut scope, ast) {
@@ -289,6 +298,7 @@ impl Objective {
                 };
 
                 AttemptResult::Better { value }
+                */
             }
         }
     }

@@ -44,6 +44,12 @@ pub struct Editor {
 
     /// Generation of this script for remote simulation.
     generation: u16,
+
+    /// Temperature for use in the simulated annealing algorithm.
+    temperature: f32,
+
+    /// The exponential decay constant for the temperature.
+    cooling_rate: f32,
 }
 
 trait HLTASExt {
@@ -122,6 +128,8 @@ impl Editor {
         first_frame: usize,
         initial_frame: Frame,
         generation: u16,
+        temperature: f32,
+        cooling_rate: f32,
     ) -> Self {
         let (l, _r) = hltas.line_and_repeat_at_frame(first_frame).unwrap();
 
@@ -145,6 +153,8 @@ impl Editor {
             frames: vec![initial_frame],
             last_mutation_frames: None,
             generation,
+            temperature,
+            cooling_rate,
         }
     }
 
@@ -236,7 +246,35 @@ impl Editor {
 
             // Check if we got an improvement.
             let result = objective.eval(&frames, &self.frames);
+
+            match result {
+                AttemptResult::Better { .. } => {
+                    self.hltas = hltas;
+                    self.frames = frames;
+                    Some(result)
+                }
+                AttemptResult::Worse {ref new_value, ref old_value } => {
+                    let cost: f32 = old_value.parse::<f32>().unwrap();
+                    let cost_new: f32 = new_value.parse::<f32>().unwrap();
+
+                    if rng.gen::<f32>() < ((cost - cost_new) / self.temperature).exp() {
+                        self.hltas = hltas;
+                        self.frames = frames;
+                    } else {
+                        self.last_mutation_frames = Some(frames);
+                    }
+                    Some(result)
+                }
+                AttemptResult::Invalid { .. } => {
+                    self.last_mutation_frames = Some(frames);
+                    Some(result)
+                }
+            }
+            /*
             if result.is_better() {
+                self.hltas = hltas;
+                self.frames = frames;
+            } else if rng.gen::<f32>() < ((result as f32 - cost_new as f32) / self.temperature).exp() {
                 self.hltas = hltas;
                 self.frames = frames;
             } else {
@@ -244,6 +282,7 @@ impl Editor {
             }
 
             Some(result)
+            */
         }))
     }
 
@@ -512,6 +551,15 @@ impl Editor {
         }
 
         self.hltas.lines = new_lines;
+    }
+
+    pub fn update_temperature(&mut self) {
+        self.temperature *= self.cooling_rate;
+        eprintln!("Optim: Temperature = {:.4}", self.temperature);
+    }
+
+    pub fn get_temperature(&self) -> f32 {
+        self.temperature
     }
 }
 
