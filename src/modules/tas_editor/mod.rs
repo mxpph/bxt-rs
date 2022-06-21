@@ -70,6 +70,7 @@ impl Module for TasEditor {
             &BXT_TAS_OPTIM_RHAI_FILE,
             &BXT_TAS_OPTIM_ANNEALING_TEMPERATURE,
             &BXT_TAS_OPTIM_ANNEALING_COOLING_RATE,
+            &BXT_TAS_OPTIM_ANNEALING_ITERATIONS,
         ];
         CVARS
     }
@@ -116,6 +117,8 @@ static BXT_TAS_OPTIM_ANNEALING_TEMPERATURE: CVar =
     CVar::new(b"bxt_tas_optim_annealing_temperature\0", b"10\0");
 static BXT_TAS_OPTIM_ANNEALING_COOLING_RATE: CVar =
     CVar::new(b"bxt_tas_optim_annealing_cooling_rate\0", b"0.99\0");
+static BXT_TAS_OPTIM_ANNEALING_ITERATIONS: CVar =
+    CVar::new(b"bxt_tas_optim_annealing_iterations\0", b"100\0");
 
 static BXT_TAS_OPTIM_INIT: Command = Command::new(
     b"_bxt_tas_optim_init\0",
@@ -601,7 +604,9 @@ pub fn draw(marker: MainThreadMarker, tri: &TriangleApi) {
                     BXT_TAS_OPTIM_CHANGE_SINGLE_FRAMES.as_bool(marker),
                     &*OBJECTIVE.borrow(marker),
                 ) {
-                    for result in optimizer.take(100) { // Change num iterations here?
+                    for result in optimizer.take(
+                        BXT_TAS_OPTIM_ANNEALING_ITERATIONS.as_u64(marker) as usize
+                    ) {
                         match result {
                             AttemptResult::Better { value } => {
                                 con_print(marker, &format!("Found new best value: {value}\n"));

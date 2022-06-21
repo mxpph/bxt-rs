@@ -253,9 +253,8 @@ impl Editor {
                     self.frames = frames;
                     Some(result)
                 }
-                AttemptResult::Worse {ref difference } => {
-                    let cost: f32 = difference.parse::<f32>().unwrap();
-                    let acceptance: f32 = (cost / self.temperature).exp();
+                AttemptResult::Worse { difference } => {
+                    let acceptance: f32 = (difference / self.temperature).exp();
                     assert!(acceptance <= 1_f32);
 
                     if rng.gen::<f32>() < acceptance {

@@ -130,7 +130,7 @@ pub enum AttemptResult {
     Invalid,
     /// The attempt was worse than the best so far.
     Worse {
-        difference: String,
+        difference: f32,
     },
     /// The attempt was an improvement.
     Better {
@@ -194,9 +194,7 @@ impl Objective {
                             difference = new_value - old_value;
                         }
                     }
-                    return AttemptResult::Worse {
-                        difference: difference.to_string(),
-                    };
+                    return AttemptResult::Worse { difference };
                 }
 
                 AttemptResult::Better {
@@ -205,8 +203,6 @@ impl Objective {
             }
             Objective::Rhai { engine, ast } => {
 
-                todo!();
-                /*
                 let mut scope = rhai::Scope::new();
 
                 if let Err(err) = engine.run_ast_with_scope(&mut scope, ast) {
@@ -267,17 +263,23 @@ impl Objective {
                         [new_frames.clone(), old_frames],
                     )
                     .as_ref()
-                    .map(rhai::Dynamic::as_bool)
+                    .map(rhai::Dynamic::as_float)
                 {
-                    Ok(Ok(true)) => (),
-                    Ok(Ok(false)) => return AttemptResult::Worse,
+                    Ok(Ok(difference)) => {
+                        if difference >= 0. {
+                            ();
+                        } else {
+                            return AttemptResult::Worse { difference };
+                        }
+                    }
                     Ok(Err(err)) => {
                         error!("is_better() returned an unexpected type: {err}");
-                        return AttemptResult::Worse;
+                        // Return min f32 to ensure probability of choosing this is zero.
+                        return AttemptResult::Worse { difference: f32::MIN };
                     }
                     Err(err) => {
                         error!("Call to is_better() failed: {err:?}");
-                        return AttemptResult::Worse;
+                        return AttemptResult::Worse { difference: f32::MIN };
                     }
                 }
 
@@ -305,7 +307,6 @@ impl Objective {
                 };
 
                 AttemptResult::Better { value }
-                */
             }
         }
     }
