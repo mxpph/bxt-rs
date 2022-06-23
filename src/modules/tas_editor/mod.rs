@@ -225,8 +225,18 @@ fn optim_init(marker: MainThreadMarker, path: PathBuf, first_frame: usize) {
 
     let temperature: f32 = BXT_TAS_OPTIM_ANNEALING_TEMPERATURE.as_f32(marker);
     let cooling_rate: f32 = BXT_TAS_OPTIM_ANNEALING_COOLING_RATE.as_f32(marker);
+    let max_iterations: usize = BXT_TAS_OPTIM_ANNEALING_ITERATIONS.as_u64(marker) as usize;
 
-    *EDITOR.borrow_mut(marker) = Some(Editor::new(hltas, first_frame, initial_frame, generation, temperature, cooling_rate));
+    *EDITOR.borrow_mut(marker) = Some(Editor::new(
+        hltas,
+        first_frame,
+        initial_frame,
+        generation,
+        temperature,
+        cooling_rate,
+        max_iterations,
+        0,
+    ));
 
     if let Err(err) = remote::start_server() {
         con_print(
@@ -592,7 +602,7 @@ pub fn draw(marker: MainThreadMarker, tri: &TriangleApi) {
                     .unwrap();
 
             if OPTIMIZE.get(marker) {
-                if editor.get_temperature() < 0.0001_f32 {
+                if editor.get_temperature() < 0.0001 {
                     OPTIMIZE.set(marker, false);
                 }
                 editor.update_temperature();
@@ -604,9 +614,9 @@ pub fn draw(marker: MainThreadMarker, tri: &TriangleApi) {
                     BXT_TAS_OPTIM_CHANGE_SINGLE_FRAMES.as_bool(marker),
                     &*OBJECTIVE.borrow(marker),
                 ) {
-                    for result in optimizer.take(
-                        BXT_TAS_OPTIM_ANNEALING_ITERATIONS.as_u64(marker) as usize
-                    ) {
+                    let start = Instant::now();
+
+                    for result in optimizer {
                         match result {
                             AttemptResult::Better { value } => {
                                 con_print(marker, &format!("Found new best value: {value}\n"));
@@ -619,6 +629,10 @@ pub fn draw(marker: MainThreadMarker, tri: &TriangleApi) {
                         }
 
                         OPTIM_STATS_ITERATIONS.set(marker, OPTIM_STATS_ITERATIONS.get(marker) + 1);
+
+                        if start.elapsed() > Duration::from_millis(40) {
+                            break;
+                        }
                     }
                 }
 

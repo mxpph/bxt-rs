@@ -50,6 +50,12 @@ pub struct Editor {
 
     /// The exponential decay constant for the temperature.
     cooling_rate: f32,
+
+    /// The number of iterations per temperature.
+    max_iterations: usize,
+
+    /// The current number of iterations that have occured.
+    current_iterations: usize,
 }
 
 trait HLTASExt {
@@ -130,6 +136,8 @@ impl Editor {
         generation: u16,
         temperature: f32,
         cooling_rate: f32,
+        max_iterations: usize,
+        current_iterations: usize,
     ) -> Self {
         let (l, _r) = hltas.line_and_repeat_at_frame(first_frame).unwrap();
 
@@ -155,6 +163,8 @@ impl Editor {
             generation,
             temperature,
             cooling_rate,
+            max_iterations,
+            current_iterations,
         }
     }
 
@@ -243,6 +253,8 @@ impl Editor {
             // Simulate the result.
             let simulator = Simulator::new(tracer, &frames, &hltas.lines);
             frames.extend(simulator);
+
+            self.current_iterations += 1;
 
             // Check if we got an improvement.
             let result = objective.eval(&frames, &self.frames);
@@ -541,8 +553,11 @@ impl Editor {
     }
 
     pub fn update_temperature(&mut self) {
-        self.temperature *= self.cooling_rate;
-        eprintln!("Optim: Temperature = {:.4}", self.temperature);
+        if self.current_iterations > self.max_iterations {
+            self.temperature *= self.cooling_rate;
+            eprintln!("Optim: Temperature = {:.4}", self.temperature);
+            self.current_iterations = 0;
+        }
     }
 
     pub fn get_temperature(&self) -> f32 {
